@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/joho/godotenv"
 	"golang.org/x/oauth2"
 )
 
@@ -16,14 +17,9 @@ type OAuth2Token struct {
 }
 
 func main() {
-	config := oauth2.Config{
-		ClientID:     "c8130dc63726cbff7289",
-		ClientSecret: "4a84ac7fc10c9d4f14424133e5c9531fd0d475b7",
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://github.com/login/oauth/authorize",
-			TokenURL: "https://github.com/login/oauth/access_token",
-		},
-		RedirectURL: "http://localhost:8080/callback",
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Environment variables failed to load")
 	}
 
 	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +32,22 @@ func main() {
 
 		ctx := context.Background()
 		code := keys[0]
+
+		keys, ok = r.URL.Query()["state"]
+		if !ok {
+			log.Println("State was not passed from OAuth2")
+			http.Error(w, "State was not passed from OAuth2", http.StatusBadRequest)
+			return
+		}
+
+		var config oauth2.Config
+
+		state := keys[0]
+		if state == "google" {
+			config = GoogleConfig
+		} else if state == "github" {
+			config = GithubConfig
+		}
 
 		token, err := config.Exchange(ctx, code)
 		if err != nil {
@@ -57,11 +69,15 @@ func main() {
 		w.Write(json)
 	})
 
+	http.HandleFunc("/api/auth/google", func(w http.ResponseWriter, r *http.Request) {
+		url := GoogleConfig.AuthCodeURL("google", oauth2.AccessTypeOnline)
+		http.Redirect(w, r, url, http.StatusMovedPermanently)
+	})
+
 	http.HandleFunc("/api/auth/github", func(w http.ResponseWriter, r *http.Request) {
-		url := config.AuthCodeURL("state", oauth2.AccessTypeOnline)
+		url := GithubConfig.AuthCodeURL("github", oauth2.AccessTypeOnline)
 		http.Redirect(w, r, url, http.StatusMovedPermanently)
 	})
 
 	http.ListenAndServe(":8080", nil)
-
 }
