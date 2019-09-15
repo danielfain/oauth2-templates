@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/joho/godotenv"
 	"golang.org/x/oauth2"
 )
 
@@ -17,11 +16,6 @@ type OAuth2Token struct {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Environment variables failed to load")
-	}
-
 	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		keys, ok := r.URL.Query()["code"]
 		if !ok {
